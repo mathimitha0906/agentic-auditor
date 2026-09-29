@@ -1,0 +1,20 @@
+SERVICE AGREEMENT
+
+This Service Agreement is between ABC Technologies and John Solutions.
+
+SERVICES:
+John Solutions will provide software development services.
+
+PAYMENT:
+The client will pay ₹50,000 for the services.
+
+The payment will be made within 30 days.
+
+TERMINATION:
+Either party may terminate this agreement.
+
+CONFIDENTIALITY:
+Both parties agree to keep confidential information private.
+
+DELIVERY:
+The software will be delivered after completion of development.
