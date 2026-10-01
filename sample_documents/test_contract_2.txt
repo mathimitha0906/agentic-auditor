@@ -1,0 +1,26 @@
+SERVICE AGREEMENT
+
+This Service Agreement is between BrightTech Solutions and Nova Digital Services.
+
+SERVICES:
+Nova Digital Services will provide website development, testing, and deployment services for BrightTech Solutions.
+
+PAYMENT:
+The client will pay ₹80,000 for the complete services.
+
+The payment will be made within 30 days.
+
+DELIVERY:
+The project will be delivered after completion of development.
+
+TERMINATION:
+Either party may terminate this agreement.
+
+CONFIDENTIALITY:
+Both parties agree to keep confidential information private.
+
+INTELLECTUAL PROPERTY:
+No specific intellectual property ownership terms are defined in this agreement.
+
+GOVERNING LAW:
+No governing law or dispute resolution terms are specified.

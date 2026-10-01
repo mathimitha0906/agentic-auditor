@@ -1,0 +1,31 @@
+INVOICE
+
+Invoice Number: INV-2026-002
+
+From:
+Nova Digital Services
+
+To:
+BrightTech Solutions
+
+Item 1:
+Website Development
+Quantity: 1
+Unit Price: ₹60,000
+Total: ₹60,000
+
+Item 2:
+Testing and Deployment
+Quantity: 1
+Unit Price: ₹35,000
+Total: ₹35,000
+
+Subtotal: ₹95,000
+
+GST Rate: 18%
+GST Amount: ₹16,100
+
+Grand Total: ₹111,100
+
+Payment Terms:
+Payment due within 30 days.
