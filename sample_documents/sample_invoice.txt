@@ -1,30 +1,35 @@
 INVOICE
 
-Invoice Number: INV-1001
+Invoice Number: INV-2026-001
+Invoice Date: 30-09-2026
+Due Date: 30-10-2026
 
-Seller:
-ABC Software Solutions
+SELLER:
+John Solutions
 
-Buyer:
-XYZ Technologies
+BUYER:
+ABC Technologies
+
+ITEMS:
 
 Item 1:
-Software Development
+Description: Software Development
 Quantity: 2
 Unit Price: ₹25,000
+Line Total: ₹50,000
 
 Item 2:
-Testing Services
+Description: Testing Services
 Quantity: 1
 Unit Price: ₹10,000
+Line Total: ₹10,000
 
 Subtotal: ₹60,000
 
 GST: 18%
-
 GST Amount: ₹10,800
 
 Grand Total: ₹70,800
 
 Payment Terms:
-Payment due within 30 days.
+Payment due within 30 days of invoice date.

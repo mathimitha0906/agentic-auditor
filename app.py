@@ -1,602 +1,819 @@
 import streamlit as st
-from pathlib import Path
-
-from core.document_processor import extract_text_from_pdf
-from agents.compliance_agent import run_compliance_audit
-from agents.financial_agent import run_financial_audit
-
-
-# ============================================================
-# PAGE CONFIG
-# ============================================================
+from core.orchestrator import run_full_audit
+import re
+import io
+import html
 
 st.set_page_config(
     page_title="Agentic Auditor",
     page_icon="🛡️",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed"
 )
 
+# =========================================================
+# STYLE
+# =========================================================
 
-# ============================================================
-# CSS
-# ============================================================
+st.markdown("""
+<style>
+.stApp {
+    background:
+        radial-gradient(circle at 10% 0%, rgba(37,99,235,.16), transparent 28%),
+        radial-gradient(circle at 90% 10%, rgba(124,58,237,.13), transparent 25%),
+        #050b16;
+    color: #f8fafc;
+}
 
-st.markdown(
-    """
-    <style>
+.block-container {
+    max-width: 1400px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
 
-    .stApp {
-        background-color: #f5f7fb;
-    }
+.hero {
+    text-align: center;
+    padding: 28px 20px 35px;
+}
 
-    .block-container {
-        max-width: 1400px;
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-    }
+.hero-title {
+    font-size: 50px;
+    font-weight: 850;
+    letter-spacing: -1.5px;
+    margin-bottom: 8px;
+}
 
-    /* Main title */
+.hero-subtitle {
+    font-size: 19px;
+    color: #94a3b8;
+    margin-bottom: 18px;
+}
 
-    .main-title {
-        font-size: 48px;
-        font-weight: 800;
-        color: #111827;
-        margin-bottom: 5px;
-    }
+.hero-badge {
+    display: inline-block;
+    padding: 9px 18px;
+    border-radius: 999px;
+    background: rgba(37,99,235,.10);
+    border: 1px solid rgba(96,165,250,.35);
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 700;
+}
 
-    .main-subtitle {
-        font-size: 18px;
-        color: #64748b;
-        margin-bottom: 25px;
-    }
+.section-title {
+    font-size: 25px;
+    font-weight: 800;
+    margin: 25px 0 15px;
+}
 
-    /* Cards */
+.agent-card {
+    background: linear-gradient(145deg, rgba(15,27,45,.98), rgba(8,18,33,.98));
+    border: 1px solid #24344d;
+    border-radius: 20px;
+    padding: 25px;
+    min-height: 215px;
+    box-shadow: 0 12px 35px rgba(0,0,0,.18);
+}
 
-    .card {
-        background-color: white;
-        padding: 25px;
-        border-radius: 18px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 5px 20px rgba(15,23,42,0.06);
-        margin-bottom: 20px;
-    }
+.agent-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+}
 
-    .card-title {
-        font-size: 20px;
-        font-weight: 700;
-        color: #111827;
-    }
+.agent-name {
+    font-size: 20px;
+    font-weight: 800;
+}
 
-    .card-text {
-        color: #64748b;
-        font-size: 14px;
-        line-height: 1.6;
-    }
+.agent-description {
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1.55;
+    margin-top: 10px;
+}
 
-    /* Agent cards */
+.ready {
+    margin-top: 18px;
+    color: #4ade80;
+    font-size: 12px;
+    font-weight: 800;
+}
 
-    .agent-name {
-        font-size: 19px;
-        font-weight: 700;
-        color: #111827;
-    }
+.workspace {
+    margin-top: 35px;
+    background: linear-gradient(145deg, rgba(11,23,40,.98), rgba(7,16,29,.98));
+    border: 1px solid #26364d;
+    border-radius: 22px;
+    padding: 28px;
+}
 
-    .agent-description {
-        color: #64748b;
-        font-size: 14px;
-        line-height: 1.5;
-    }
+.workspace-title {
+    font-size: 26px;
+    font-weight: 800;
+}
 
-    /* Section */
+.workspace-subtitle {
+    color: #94a3b8;
+    margin-top: 5px;
+}
 
-    .section {
-        font-size: 26px;
-        font-weight: 750;
-        color: #111827;
-        margin-top: 25px;
-        margin-bottom: 18px;
-    }
+.upload-card {
+    background: rgba(15,27,45,.9);
+    border: 1px solid #26364d;
+    border-radius: 18px;
+    padding: 20px;
+    min-height: 120px;
+}
 
-    /* Status */
+.upload-title {
+    font-size: 19px;
+    font-weight: 800;
+}
 
-    .status {
-        color: #16a34a;
-        font-weight: 700;
-        font-size: 13px;
-    }
+.upload-description {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-top: 6px;
+}
 
-    /* Footer */
+.audit-header {
+    margin-top: 40px;
+    margin-bottom: 22px;
+    padding: 25px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(30,41,59,.9), rgba(15,23,42,.95));
+    border: 1px solid #334155;
+}
 
-    .footer {
-        text-align: center;
-        color: #94a3b8;
-        padding-top: 40px;
-        padding-bottom: 20px;
-        font-size: 13px;
-    }
+.audit-header-title {
+    font-size: 30px;
+    font-weight: 850;
+}
 
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+.audit-header-subtitle {
+    color: #94a3b8;
+    margin-top: 5px;
+}
 
+.metric-card {
+    background: #0b1525;
+    border: 1px solid #26364d;
+    border-radius: 17px;
+    padding: 20px;
+    min-height: 125px;
+}
 
-# ============================================================
-# SIDEBAR
-# ============================================================
+.metric-label {
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
 
-with st.sidebar:
+.metric-value {
+    font-size: 27px;
+    font-weight: 850;
+    margin-top: 9px;
+}
 
-    st.markdown("## 🛡️ Agentic Auditor")
+.risk-high, .mismatch {
+    color: #f87171;
+}
 
-    st.caption(
-        "AI-powered document intelligence"
-    )
+.risk-medium {
+    color: #fbbf24;
+}
 
-    st.divider()
+.risk-low, .verified {
+    color: #4ade80;
+}
 
-    st.markdown("### ⚙️ Audit Configuration")
+.finding-box {
+    background: #0b1525;
+    border: 1px solid #26364d;
+    border-radius: 18px;
+    padding: 22px;
+    margin-bottom: 18px;
+}
 
-    document_type = st.selectbox(
-        "Document Type",
-        [
-            "Auto Detect",
-            "Contract",
-            "Invoice",
-            "Contract + Invoice",
-        ],
-    )
+.finding-title {
+    font-size: 21px;
+    font-weight: 800;
+}
 
-    st.divider()
+.finding-description {
+    color: #94a3b8;
+    line-height: 1.6;
+}
 
-    st.markdown("### 🤖 AI Agent Network")
+.footer {
+    text-align: center;
+    color: #64748b;
+    margin-top: 60px;
+    padding: 25px;
+    border-top: 1px solid #172337;
+}
 
-    st.markdown("🛡️ **Compliance Officer**")
-    st.caption("Legal risk & clause analysis")
+.stButton > button {
+    border-radius: 12px;
+    font-weight: 800;
+    min-height: 48px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-    st.markdown("💰 **Financial Auditor**")
-    st.caption("Invoice & calculation verification")
-
-    st.markdown("💬 **Client Communicator**")
-    st.caption("Business-friendly recommendations")
-
-    st.divider()
-
-    st.caption(
-        "HackNowa Global Hackathon 2026"
-    )
-
-    st.caption(
-        "Future of Work & Automation"
-    )
-
-
-# ============================================================
+# =========================================================
 # HERO
-# ============================================================
+# =========================================================
 
-st.markdown(
-    '<div class="main-title">🛡️ Agentic Auditor</div>',
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<div class="hero">
+    <div class="hero-title">🛡️ Agentic Auditor</div>
+    <div class="hero-subtitle">
+        Multi-Agent AI for intelligent contract and invoice auditing
+    </div>
+    <div class="hero-badge">
+        ✦ AI-Powered &nbsp;•&nbsp; Multi-Agent &nbsp;•&nbsp; Cross-Document Audit
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-st.markdown(
-    '<div class="main-subtitle">'
-    'Multi-Agent AI for intelligent contract and invoice auditing'
-    '</div>',
-    unsafe_allow_html=True,
-)
-
-st.info(
-    "✦ AI-Powered   •   Multi-Agent   •   Automated Audit"
-)
-
-
-# ============================================================
+# =========================================================
 # AGENT NETWORK
-# ============================================================
+# =========================================================
 
-st.markdown(
-    '<div class="section">🤖 AI Agent Network</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="section-title">🤖 AI Agent Network</div>', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
+c1, c2, c3 = st.columns(3)
 
+agents = [
+    ("🛡️", "Compliance Officer",
+     "Detects missing clauses, legal risks, ambiguous terms and compliance issues."),
+    ("💰", "Financial Auditor",
+     "Verifies quantities, line items, tax calculations and invoice totals."),
+    ("💬", "Client Communicator",
+     "Converts technical findings into clear business-friendly recommendations.")
+]
 
-with col1:
-
-    st.markdown(
-        """
-        <div class="card">
-
-        <div style="font-size:35px;">🛡️</div>
-
-        <div class="agent-name">
-        Compliance Officer
+for column, (icon, name, description) in zip((c1, c2, c3), agents):
+    with column:
+        st.markdown(f"""
+        <div class="agent-card">
+            <div class="agent-icon">{icon}</div>
+            <div class="agent-name">{name}</div>
+            <div class="agent-description">{description}</div>
+            <div class="ready">● READY</div>
         </div>
+        """, unsafe_allow_html=True)
 
-        <br>
+# =========================================================
+# WORKSPACE
+# =========================================================
 
-        <div class="agent-description">
-        Detects missing clauses, legal risks,
-        ambiguous terms and compliance issues.
-        </div>
+st.markdown("""
+<div class="workspace">
+    <div class="workspace-title">📄 Audit Workspace</div>
+    <div class="workspace-subtitle">
+        Upload the contract and invoice separately. The AI system will compare both documents.
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-        <br>
+c1, c2 = st.columns(2)
 
-        <div class="status">
-        ● READY
-        </div>
+with c1:
+    st.markdown("""
+    <div class="upload-card">
+        <div class="upload-title">📄 Contract</div>
+        <div class="upload-description">Upload the service agreement or contract.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-        </div>
-        """,
-        unsafe_allow_html=True,
+    contract_file = st.file_uploader(
+        "Choose contract",
+        type=["txt", "pdf"],
+        key="contract_file"
     )
 
+with c2:
+    st.markdown("""
+    <div class="upload-card">
+        <div class="upload-title">🧾 Invoice</div>
+        <div class="upload-description">Upload the corresponding invoice.</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-with col2:
-
-    st.markdown(
-        """
-        <div class="card">
-
-        <div style="font-size:35px;">💰</div>
-
-        <div class="agent-name">
-        Financial Auditor
-        </div>
-
-        <br>
-
-        <div class="agent-description">
-        Verifies quantities, line items,
-        tax calculations and invoice totals.
-        </div>
-
-        <br>
-
-        <div class="status">
-        ● READY
-        </div>
-
-        </div>
-        """,
-        unsafe_allow_html=True,
+    invoice_file = st.file_uploader(
+        "Choose invoice",
+        type=["txt", "pdf"],
+        key="invoice_file"
     )
 
+# =========================================================
+# FILE READER
+# =========================================================
 
-with col3:
+def read_file(uploaded_file):
+    if uploaded_file is None:
+        return ""
 
-    st.markdown(
-        """
-        <div class="card">
+    name = uploaded_file.name.lower()
 
-        <div style="font-size:35px;">💬</div>
+    if name.endswith(".txt"):
+        return uploaded_file.read().decode("utf-8", errors="ignore")
 
-        <div class="agent-name">
-        Client Communicator
-        </div>
+    if name.endswith(".pdf"):
+        try:
+            import PyPDF2
 
-        <br>
+            reader = PyPDF2.PdfReader(uploaded_file)
+            text = ""
 
-        <div class="agent-description">
-        Converts technical findings into
-        clear business-friendly recommendations.
-        </div>
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
 
-        <br>
+            return text
 
-        <div class="status">
-        ● READY
-        </div>
+        except Exception as e:
+            st.error(f"PDF reading failed: {e}")
+            return ""
 
-        </div>
-        """,
-        unsafe_allow_html=True,
+    return ""
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+def extract_risk(text):
+    match = re.search(
+        r"Overall Risk\s*:\s*(HIGH|MEDIUM|LOW)",
+        text,
+        re.IGNORECASE
     )
+    return match.group(1).upper() if match else "REVIEW"
 
 
-# ============================================================
-# AUDIT WORKSPACE
-# ============================================================
+def extract_financial_status(text):
+    matches = re.findall(
+        r"Financial Status\s*:\s*(VERIFIED|MISMATCH|INCOMPLETE)",
+        text,
+        re.IGNORECASE
+    )
+    return matches[-1].upper() if matches else "REVIEW"
 
-st.markdown(
-    '<div class="section">📄 Audit Workspace</div>',
-    unsafe_allow_html=True,
-)
 
-st.markdown(
+def count_issues(text):
+    return len(re.findall(r"(?:^|\n)\s*\d+\.\s*\[", text or ""))
+
+
+def metric_class(value):
+    value = value.upper()
+
+    if value == "HIGH":
+        return "risk-high"
+    if value == "MEDIUM":
+        return "risk-medium"
+    if value in ("LOW", "VERIFIED"):
+        return "verified"
+    if value == "MISMATCH":
+        return "mismatch"
+
+    return ""
+
+# =========================================================
+# RUN AUDIT
+# =========================================================
+
+if contract_file and invoice_file:
+
+    st.success("✅ Both documents uploaded successfully.")
+
+    if st.button(
+        "🚀 START CROSS-DOCUMENT AI AUDIT",
+        type="primary",
+        use_container_width=True
+    ):
+
+        contract_text = read_file(contract_file)
+        invoice_text = read_file(invoice_file)
+
+        if not contract_text.strip():
+            st.error("❌ Contract file is empty.")
+        elif not invoice_text.strip():
+            st.error("❌ Invoice file is empty.")
+        else:
+
+            progress = st.progress(0)
+            status = st.empty()
+
+            try:
+                status.info("🛡️ Compliance Officer is analysing...")
+                progress.progress(25)
+
+                result = run_full_audit(
+                    contract_text,
+                    invoice_text
+                )
+
+                progress.progress(100)
+                status.success("✅ Multi-agent audit completed successfully.")
+
+                st.session_state["audit_result"] = result
+
+            except TypeError:
+
+                # Compatibility fallback for an older one-argument orchestrator.
+                combined = (
+                    "CONTRACT\n"
+                    "====================\n"
+                    + contract_text
+                    + "\n\nINVOICE\n"
+                    "====================\n"
+                    + invoice_text
+                )
+
+                try:
+                    result = run_full_audit(combined)
+
+                    progress.progress(100)
+                    status.success("✅ Multi-agent audit completed successfully.")
+                    st.session_state["audit_result"] = result
+
+                except Exception as e:
+                    progress.empty()
+                    status.empty()
+                    st.error(f"❌ Audit failed: {e}")
+
+            except Exception as e:
+                progress.empty()
+                status.empty()
+                st.error(f"❌ Audit failed: {e}")
+
+elif contract_file:
+    st.info("🧾 Please upload the invoice also.")
+
+elif invoice_file:
+    st.info("📄 Please upload the contract also.")
+
+else:
+    st.info("📄 Upload a contract and 🧾 invoice to activate the cross-document AI audit.")
+
+
+# =========================================================
+# PDF REPORT GENERATOR
+# =========================================================
+
+def clean_pdf_text(text):
+    """Convert report text into PDF-safe plain text."""
+    if not text:
+        return ""
+
+    text = str(text)
+
+    # Keep the report readable with ReportLab's built-in fonts.
+    replacements = {
+        "₹": "Rs. ",
+        "🛡️": "[Compliance]",
+        "💰": "[Financial]",
+        "💬": "[Communication]",
+        "📋": "[Unified]",
+        "📊": "[Audit]",
+        "🚀": "",
+        "✅": "[OK]",
+        "❌": "[ERROR]",
+        "⚠️": "[WARNING]",
+        "—": "-",
+        "–": "-",
+        "“": '"',
+        "”": '"',
+        "‘": "'",
+        "’": "'",
+        "•": "-",
+        "✦": "*",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    # Remove remaining non-ASCII characters that built-in PDF fonts
+    # cannot reliably render.
+    return text.encode("latin-1", errors="replace").decode("latin-1")
+
+
+def build_pdf_report(compliance, financial, communication, summary):
     """
-    <div class="card">
-
-    <div class="card-title">
-    Upload your business document
-    </div>
-
-    <div class="card-text">
-    Upload a contract, invoice or business document
-    for multi-agent AI analysis.
-    </div>
-
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-uploaded_file = st.file_uploader(
-    "Upload Document",
-    type=["pdf", "txt"],
-)
-
-
-# ============================================================
-# PROCESS DOCUMENT
-# ============================================================
-
-document_text = ""
-
-
-if uploaded_file is not None:
-
-    st.success(
-        f"📎 {uploaded_file.name} uploaded successfully"
-    )
-
-    extension = Path(
-        uploaded_file.name
-    ).suffix.lower()
-
+    Create a downloadable PDF audit report entirely in memory.
+    Returns PDF bytes.
+    """
     try:
-
-        if extension == ".pdf":
-
-            document_text = extract_text_from_pdf(
-                uploaded_file
-            )
-
-        elif extension == ".txt":
-
-            document_text = uploaded_file.read().decode(
-                "utf-8"
-            )
-
-    except Exception as error:
-
-        st.error(
-            f"Document processing error: {error}"
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.enums import TA_CENTER
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            SimpleDocTemplate,
+            Paragraph,
+            Spacer,
+            PageBreak
         )
+    except ImportError:
+        return None
 
+    buffer = io.BytesIO()
 
-# ============================================================
-# DOCUMENT INFORMATION
-# ============================================================
-
-if document_text.strip():
-
-    st.markdown(
-        '<div class="section">📊 Document Intelligence</div>',
-        unsafe_allow_html=True,
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=18 * mm,
+        leftMargin=18 * mm,
+        topMargin=18 * mm,
+        bottomMargin=18 * mm,
+        title="Agentic Auditor - Audit Report",
+        author="Agentic Auditor"
     )
 
-    word_count = len(
-        document_text.split()
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "AuditTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=22,
+        leading=27,
+        alignment=TA_CENTER,
+        spaceAfter=8
     )
 
-    char_count = len(
-        document_text
+    subtitle_style = ParagraphStyle(
+        "AuditSubtitle",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=14,
+        alignment=TA_CENTER,
+        spaceAfter=18
     )
+
+    section_style = ParagraphStyle(
+        "AuditSection",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=15,
+        leading=19,
+        spaceBefore=12,
+        spaceAfter=10
+    )
+
+    body_style = ParagraphStyle(
+        "AuditBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9.5,
+        leading=14,
+        spaceAfter=7
+    )
+
+    story = []
+
+    story.append(Paragraph("AGENTIC AUDITOR", title_style))
+    story.append(
+        Paragraph(
+            "Multi-Agent AI for intelligent contract and invoice auditing",
+            subtitle_style
+        )
+    )
+
+    story.append(Paragraph("FINAL AUDIT REPORT", section_style))
+
+    if compliance:
+        story.append(Paragraph("Compliance Officer Report", section_style))
+        for line in clean_pdf_text(compliance).splitlines():
+            line = line.strip()
+            if line:
+                safe = html.escape(line)
+                story.append(Paragraph(safe, body_style))
+
+    if financial:
+        story.append(Paragraph("Financial Auditor Report", section_style))
+        for line in clean_pdf_text(financial).splitlines():
+            line = line.strip()
+            if line:
+                safe = html.escape(line)
+                story.append(Paragraph(safe, body_style))
+
+    if communication:
+        story.append(Paragraph("Client Communicator Report", section_style))
+        for line in clean_pdf_text(communication).splitlines():
+            line = line.strip()
+            if line:
+                safe = html.escape(line)
+                story.append(Paragraph(safe, body_style))
+
+    if summary:
+        story.append(Paragraph("Unified Audit Report", section_style))
+        for line in clean_pdf_text(summary).splitlines():
+            line = line.strip()
+            if line:
+                safe = html.escape(line)
+                story.append(Paragraph(safe, body_style))
+
+    story.append(Spacer(1, 12))
+    story.append(
+        Paragraph(
+            "Disclaimer: This AI-generated audit summary is for informational "
+            "purposes and should be reviewed by an appropriate professional "
+            "before making legal or financial decisions.",
+            body_style
+        )
+    )
+
+    document.build(story)
+
+    return buffer.getvalue()
+
+
+# =========================================================
+# REPORT
+# =========================================================
+
+if "audit_result" in st.session_state:
+
+    result = st.session_state["audit_result"]
+
+    st.markdown("""
+    <div class="audit-header">
+        <div class="audit-header-title">📊 Final Audit Report</div>
+        <div class="audit-header-subtitle">
+            Cross-document analysis completed by the Agentic Auditor multi-agent network.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if isinstance(result, dict):
+        compliance = result.get("compliance", "")
+        financial = result.get("financial", "")
+        communication = result.get("communication", "")
+        summary = result.get("summary", "")
+    else:
+        compliance = ""
+        financial = ""
+        communication = ""
+        summary = str(result)
+
+    risk = extract_risk(str(compliance))
+    financial_status = extract_financial_status(str(financial))
+    issue_count = count_issues(str(compliance)) + count_issues(str(financial))
 
     m1, m2, m3 = st.columns(3)
 
     with m1:
-
-        st.metric(
-            "Document Status",
-            "READY",
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Overall Risk</div>
+            <div class="metric-value {metric_class(risk)}">{risk}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with m2:
-
-        st.metric(
-            "Words Detected",
-            word_count,
-        )
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Financial Status</div>
+            <div class="metric-value {metric_class(financial_status)}">
+                {financial_status}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with m3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-label">Issues Detected</div>
+            <div class="metric-value">{issue_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.metric(
-            "File Type",
-            extension.upper().replace(".", ""),
+    if compliance:
+        st.markdown("""
+        <div class="finding-box">
+            <div class="finding-title">🛡️ Compliance Findings</div>
+            <div class="finding-description">
+                Contract risks, missing clauses, ambiguous terms and compliance observations.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("View Compliance Officer Report", expanded=True):
+            st.markdown(compliance)
+
+    if financial:
+        st.markdown("""
+        <div class="finding-box">
+            <div class="finding-title">💰 Financial Verification</div>
+            <div class="finding-description">
+                Invoice calculations, tax verification, line-item checks and amount consistency.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("View Financial Auditor Report", expanded=True):
+            st.markdown(financial)
+
+    if communication:
+        st.markdown("""
+        <div class="finding-box">
+            <div class="finding-title">💬 Business Recommendations</div>
+            <div class="finding-description">
+                Clear business-friendly explanation of the audit findings.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("View Client Communicator Report", expanded=True):
+            st.markdown(communication)
+
+    if summary:
+        st.markdown("""
+        <div class="finding-box">
+            <div class="finding-title">📋 Unified Audit Report</div>
+            <div class="finding-description">
+                Consolidated output from the multi-agent audit workflow.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.expander("View Unified Report", expanded=False):
+            st.markdown(summary)
+
+    full_report = ""
+
+    sections = [
+        ("COMPLIANCE OFFICER REPORT", compliance),
+        ("FINANCIAL AUDITOR REPORT", financial),
+        ("CLIENT COMMUNICATOR REPORT", communication),
+        ("UNIFIED AUDIT REPORT", summary)
+    ]
+
+    for title, content in sections:
+        if content:
+            full_report += (
+                "=" * 45 + "\n"
+                + title + "\n"
+                + "=" * 45 + "\n\n"
+                + str(content)
+                + "\n\n"
+            )
+
+    if full_report.strip():
+
+        st.markdown("### 📥 Export Audit Report")
+
+        pdf_data = build_pdf_report(
+            compliance,
+            financial,
+            communication,
+            summary
         )
 
-    with st.expander(
-        "👁️ Preview Document"
-    ):
+        b1, b2 = st.columns(2)
 
-        st.text_area(
-            "Document Content",
-            document_text,
-            height=250,
-            label_visibility="collapsed",
-        )
+        with b1:
+            if pdf_data:
+                st.download_button(
+                    "📄 DOWNLOAD PDF REPORT",
+                    data=pdf_data,
+                    file_name="agentic_auditor_report.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            else:
+                st.error(
+                    "ReportLab is not installed. Run: "
+                    "pip install reportlab"
+                )
 
-    st.divider()
-
-    # ========================================================
-    # START AUDIT
-    # ========================================================
-
-    st.markdown(
-        '<div class="section">⚡ AI Audit Engine</div>',
-        unsafe_allow_html=True,
-    )
-
-    start_audit = st.button(
-        "🚀 START MULTI-AGENT AI AUDIT",
-        type="primary",
-        use_container_width=True,
-    )
-
-    if start_audit:
-
-        # ----------------------------------------------------
-        # COMPLIANCE
-        # ----------------------------------------------------
-
-        with st.spinner(
-            "🛡️ Compliance Officer is analyzing the document..."
-        ):
-
-            compliance_result = run_compliance_audit(
-                document_text
+        with b2:
+            st.download_button(
+                "📝 DOWNLOAD TEXT REPORT",
+                data=full_report,
+                file_name="agentic_auditor_report.txt",
+                mime="text/plain",
+                use_container_width=True
             )
 
-        st.success(
-            "🛡️ Compliance analysis completed"
-        )
-
-        # ----------------------------------------------------
-        # FINANCIAL
-        # ----------------------------------------------------
-
-        with st.spinner(
-            "💰 Financial Auditor is verifying calculations..."
-        ):
-
-            financial_result = run_financial_audit(
-                document_text
-            )
-
-        st.success(
-            "💰 Financial verification completed"
-        )
-
-        # ----------------------------------------------------
-        # RESULTS
-        # ----------------------------------------------------
-
-        st.divider()
-
-        st.markdown(
-            '<div class="section">📊 Audit Results</div>',
-            unsafe_allow_html=True,
-        )
-
-        tab1, tab2, tab3 = st.tabs(
-            [
-                "🛡️ Compliance",
-                "💰 Financial",
-                "💬 Communication",
-            ]
-        )
-
-        with tab1:
-
-            st.subheader(
-                "🛡️ Compliance Officer"
-            )
-
-            st.markdown(
-                compliance_result
-            )
-
-        with tab2:
-
-            st.subheader(
-                "💰 Financial Auditor"
-            )
-
-            st.markdown(
-                financial_result
-            )
-
-        with tab3:
-
-            st.subheader(
-                "💬 Client Communication"
-            )
-
-            st.info(
-                "Client Communicator will be connected "
-                "to the final orchestration layer next."
-            )
-
-        # ----------------------------------------------------
-        # DOWNLOAD
-        # ----------------------------------------------------
-
-        st.divider()
-
-        report = f"""
-AGENTIC AUDITOR
-MULTI-AGENT AI AUDIT REPORT
-
-Document:
-{uploaded_file.name}
-
-Document Type:
-{document_type}
-
-========================================
-
-COMPLIANCE AUDIT
-
-{compliance_result}
-
-========================================
-
-FINANCIAL AUDIT
-
-{financial_result}
-
-========================================
-
-Generated by Agentic Auditor
-HackNowa Global Hackathon 2026
-"""
-
-        st.download_button(
-            "📥 Download Audit Report",
-            report,
-            file_name="agentic_audit_report.txt",
-            mime="text/plain",
-            use_container_width=True,
-        )
-
-
-# ============================================================
-# EMPTY STATE
-# ============================================================
-
-else:
-
-    st.markdown(
-        '<div class="section">🚀 Ready to Audit</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.info(
-        "📄 Upload a PDF or TXT contract/invoice above "
-        "to activate the AI agent network."
-    )
-
-
-# ============================================================
+# =========================================================
 # FOOTER
-# ============================================================
+# =========================================================
 
-st.markdown(
-    """
-    <div class="footer">
-    🛡️ Agentic Auditor
-    &nbsp;•&nbsp;
+st.markdown("""
+<div class="footer">
+    🛡️ <b>Agentic Auditor</b>
+    &nbsp; • &nbsp;
     Future of Work & Automation
-    &nbsp;•&nbsp;
+    &nbsp; • &nbsp;
     HackNowa Global Hackathon 2026
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+    <br><br>
+    Multi-Agent AI for intelligent business document auditing
+</div>
+""", unsafe_allow_html=True)

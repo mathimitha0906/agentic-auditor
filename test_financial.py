@@ -5,12 +5,15 @@ document = """
 INVOICE
 
 Invoice Number: INV-1001
+Invoice Date: 29-09-2026
 
 Seller:
 ABC Software Solutions
+GSTIN: 33ABCDE1234F1Z5
 
 Buyer:
 XYZ Technologies
+GSTIN: 33XYZDE5678G1Z2
 
 Item 1:
 Software Development
