@@ -1,5 +1,6 @@
 import streamlit as st
 from core.orchestrator import run_full_audit
+from audit_history import save_audit, load_history
 import re
 import io
 import html
@@ -421,6 +422,20 @@ if contract_file and invoice_file:
                 status.success("✅ Multi-agent audit completed successfully.")
 
                 st.session_state["audit_result"] = result
+                                # Save audit to history
+                save_audit({
+                    "contract_file": contract_file.name,
+                    "invoice_file": invoice_file.name,
+                    "risk": extract_risk(str(result.get("compliance", ""))),
+                    "financial_status": extract_financial_status(
+                        str(result.get("financial", ""))
+                    ),
+                    "issue_count": (
+                        count_issues(str(result.get("compliance", "")))
+                        + count_issues(str(result.get("financial", "")))
+                    ),
+                    "result": result
+                })
 
             except TypeError:
 
@@ -801,7 +816,86 @@ if "audit_result" in st.session_state:
                 mime="text/plain",
                 use_container_width=True
             )
+# =========================================================
+# AUDIT HISTORY
+# =========================================================
 
+st.markdown("---")
+
+st.markdown("## 📚 Audit History")
+
+history = load_history()
+
+if not history:
+    st.info("No previous audits found.")
+else:
+    for index, audit in enumerate(reversed(history)):
+        st.markdown(
+            f"### {audit.get('invoice_file', 'Unknown Invoice')}"
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.write(
+                f"**Contract:** {audit.get('contract_file', 'Unknown')}"
+            )
+
+        with col2:
+            risk = audit.get("risk", "REVIEW")
+            st.write(f"**Risk:** {risk}")
+
+        with col3:
+            financial_status = audit.get(
+                "financial_status",
+                "REVIEW"
+            )
+            st.write(
+                f"**Financial:** {financial_status}"
+            )
+
+        with col4:
+            st.write(
+                f"**Date:** {audit.get('saved_at', 'Unknown')}"
+            )
+
+        with st.expander("View Previous Audit Report"):
+            previous_result = audit.get("result", {})
+
+            if isinstance(previous_result, dict):
+                previous_compliance = previous_result.get(
+                    "compliance", ""
+                )
+                previous_financial = previous_result.get(
+                    "financial", ""
+                )
+                previous_communication = previous_result.get(
+                    "communication", ""
+                )
+                previous_summary = previous_result.get(
+                    "summary", ""
+                )
+
+                if previous_compliance:
+                    st.markdown("#### Compliance Officer Report")
+                    st.markdown(previous_compliance)
+
+                if previous_financial:
+                    st.markdown("#### Financial Auditor Report")
+                    st.markdown(previous_financial)
+
+                if previous_communication:
+                    st.markdown("#### Client Communicator Report")
+                    st.markdown(previous_communication)
+
+                if previous_summary:
+                    st.markdown("#### Unified Audit Report")
+                    st.markdown(previous_summary)
+
+            else:
+                st.write(previous_result)
+
+        st.markdown("---")
 # =========================================================
 # FOOTER
 # =========================================================
