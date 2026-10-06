@@ -1,10 +1,31 @@
 import streamlit as st
 from core.orchestrator import run_full_audit
 from audit_history import save_audit, load_history
+from auth import render_login, render_sidebar, render_dashboard, render_settings
 import re
 import io
 import html
 
+# =========================================================
+# AUTHENTICATION
+# =========================================================
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    render_login()
+    st.stop()
+
+current_page = render_sidebar()
+
+if current_page == "📊 Dashboard":
+    render_dashboard(load_history)
+    st.stop()
+
+if current_page == "⚙️ Settings":
+    render_settings()
+    st.stop()
 st.set_page_config(
     page_title="Agentic Auditor",
     page_icon="🛡️",
